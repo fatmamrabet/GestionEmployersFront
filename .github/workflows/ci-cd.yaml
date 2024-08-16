@@ -6,8 +6,8 @@ on:
       - master
 
 jobs:
-  build:
-    runs-on: self-hosted
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
@@ -21,6 +21,9 @@ jobs:
     - name: Install dependencies
       run: npm install --legacy-peer-deps
 
+    - name: Run tests
+      run: npm test
+
     - name: Build Angular app
       run: npm run build --prod
 
@@ -29,24 +32,13 @@ jobs:
 
     - name: Login to DockerHub
       run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      shell: bash
 
     - name: Push Docker image
       run: docker push ${{ secrets.DOCKER_USERNAME }}/angular-app:v6
 
-  deploy:
-    runs-on: self-hosted
-    needs: build
-
-    steps:
-    - name: Install Argo CD CLI
+    - name: Update Kubernetes Deployment
       run: |
-        curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/download/v2.0.0/argocd-linux-amd64
-        chmod +x argocd
-        sudo mv argocd /usr/local/bin/argocd
-
-    - name: Login to Argo CD
-      run: argocd login http://127.0.0.1:8080 --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
-
-    - name: Sync application in Argo CD
-      run: argocd app sync spring-angular
+        kubectl set image deployment/angular-deployment angular-container=${{ secrets.DOCKER_USERNAME }}/angular-app:v6 --record
+        kubectl rollout status deployment/angular-deployment
+      env:
+        KUBECONFIG: ${{ secrets.KUBECONFIG }}
