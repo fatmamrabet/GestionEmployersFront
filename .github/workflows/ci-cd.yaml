@@ -27,17 +27,9 @@ jobs:
     - name: Build Docker image
       run: docker build -t ${{ secrets.DOCKER_USERNAME }}/angular-app:v6 .
 
-    - name: Set Docker Username
-      run: $Env:DOCKER_USERNAME='fatmamrabet'
-
-    - name: Set Docker Password
-      run: $Env:DOCKER_PASSWORD='FatFouuuta999'
-
     - name: Login to DockerHub
-      run: echo $Env:DOCKER_PASSWORD | docker login -u $Env:DOCKER_USERNAME --password-stdin
-
-  #  - name: Login to DockerHub
-  #    run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin 
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      shell: bash
 
     - name: Push Docker image
       run: docker push ${{ secrets.DOCKER_USERNAME }}/angular-app:v6
