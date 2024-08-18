@@ -1,9 +1,9 @@
-name: CI/CD Angular
+name: CI/CD with ArgoCD for Angular
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build-and-deploy:
@@ -25,17 +25,32 @@ jobs:
       run: npm run build --prod
 
     - name: Build Docker image
-      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/angular-app:v6 .
+      run: docker build -t ${{ secrets.DOCKER_USERNAME }}/angular-app:${{ github.sha }} .
 
     - name: Login to DockerHub
       run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
     - name: Push Docker image
-      run: docker push ${{ secrets.DOCKER_USERNAME }}/angular-app:v6
+      run: docker push ${{ secrets.DOCKER_USERNAME }}/angular-app:${{ github.sha }}
 
-    - name: Update Kubernetes Deployment
+    - name: Checkout manifests repository
+      uses: actions/checkout@v2
+      with:
+        repository: fatmamrabet/repo-kubernetes-configs  # Remplace par le chemin de ton dépôt
+        path: manifests
+        token: ${{ secrets.PAT_GITHUB }}
+
+    - name: Update Kubernetes manifests
       run: |
-        kubectl set image deployment/angular-deployment angular-container=${{ secrets.DOCKER_USERNAME }}/angular-app:v6 --record
-        kubectl rollout status deployment/angular-deployment
+        sed -i 's#image: .*$#image: '"${{ secrets.DOCKER_USERNAME }}/angular-app:${{ github.sha }}"'#g' manifests/deployment-angular.yaml
+
+    - name: Commit and push changes
+      run: |
+        cd manifests
+        git config --global user.email "fatma.mrabet@esprit.tn"  # Remplace par ton email
+        git config --global user.name "fatmamrabet"  # Remplace par ton nom
+        git add .
+        git commit -m "Update Angular image to ${{ github.sha }}"
+        git push https://fatmamrabet:${{ secrets.PAT_GITHUB }}@github.com/fatmamrabet/repo-kubernetes-configs.git HEAD:main
       env:
-        KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        GITHUB_TOKEN: ${{ secrets.PAT_GITHUB }}
